@@ -23,10 +23,9 @@ played in **mGBA**.
 |---|---|
 | Mac | Apple silicon (arm64). No Rosetta 2, no x86_64 Homebrew |
 | ARM toolchain | devkitARM release 66 (GCC 15.1) at `/opt/devkitpro/devkitARM`; `DEVKITPRO`/`DEVKITARM` exported in `~/.zshrc` |
-| Host tools | Xcode Command Line Tools, Homebrew (`/opt/homebrew`) `libpng`, `pkg-config` |
+| Host tools | Xcode Command Line Tools, Homebrew (`/opt/homebrew`) `libpng`, `pkg-config`, `coreutils` 9.12 (`g`-prefixed names; not on PATH unprefixed) |
 | Emulator | mGBA 0.10.5, Homebrew cask `mgba-app`, at `/Applications/mGBA.app` |
 | Debugger | `arm-none-eabi-gdb` (ships with devkitARM) |
-| Not installed | `coreutils` (needed for `make check`, see §3) |
 
 ## 2. Git and GitHub
 
@@ -88,8 +87,14 @@ None are set today. If one appears, build with
 `env -u CPATH -u C_INCLUDE_PATH -u LIBRARY_PATH -u LDFLAGS -u CFLAGS -u CPPFLAGS make ...`.
 
 **Tests.** `make check` builds a test ROM and runs it headlessly with
-`tools/mgba-rom-test-hydra`. On macOS it needs Homebrew `coreutils` first
-(`docs/install/mac/MAC_OS.md`, step 3); ask before installing it.
+`tools/mgba-rom-test-hydra`. On macOS it needs Homebrew `coreutils`
+(`docs/install/mac/MAC_OS.md`, step 3), which is installed. The hydra calls
+plain `stdbuf`, which resolves to macOS's `/usr/bin/stdbuf`. If a run hangs
+without output, retry with GNU's:
+`PATH="/opt/homebrew/opt/coreutils/libexec/gnubin:$PATH" make check ...`.
+Verified 2026-11-08: `make check TESTS="Spikes"` passed 4/4 with macOS's
+`stdbuf`. The first run took about 3.5 minutes, nearly all of it compiling the
+test ROM (`pokeemerald-test.elf`); later runs reuse that build.
 
 ```sh
 make -j"$(sysctl -n hw.ncpu)" check
@@ -192,7 +197,7 @@ rules protect that work even when only the ROM is being built:
 **Do**
 1. Build the ROM after every change and read the memory report. Don't add new warnings.
 2. For battle, AI or data changes, add or update a test in `test/` and run it
-   with `make check TESTS=...` (once `coreutils` is installed).
+   with `make check TESTS=...`.
 3. Write tests that hold across generation configs (assert the config, or use
    moves whose data doesn't change between generations).
 4. Follow `docs/STYLEGUIDE.md`: 4-space indents in `.c`/`.h`, tabs in `.s`;
