@@ -864,7 +864,15 @@
 //       More space can be made by shifting flags around in constants/flags.h or changing how trainer flags are handled
 //       MAX_TRAINERS_COUNT can be increased but will take up additional saveblock space
 
-#define TRAINERS_COUNT_EMERALD     855
+// Boss tier teams (src/trainer_scaling.c). They are only ever used as party data
+// for the base boss, never fought by ID, so they do not need trainer flags; they
+// still take a slot below MAX_TRAINERS_COUNT_EMERALD so they cannot collide with
+// battle partner IDs (MAX_TRAINERS_COUNT + partner).
+#define TRAINER_ROXANNE_TIER_EARLY          855
+#define TRAINER_ROXANNE_TIER_MID            856
+#define TRAINER_ROXANNE_TIER_LATE           857
+
+#define TRAINERS_COUNT_EMERALD     858
 #define MAX_TRAINERS_COUNT_EMERALD 864
 
 #if IS_FRLG

@@ -44,6 +44,7 @@
 #include "trainer_hill.h"
 #include "trainer_pools.h"
 #include "trainer_see.h"
+#include "trainer_scaling.h"
 #include "trainer_util.h"
 #include "tv.h"
 #include "overworld.h"
@@ -2230,10 +2231,13 @@ void SetMultiTrainerBattle(struct ScriptContext *ctx)
     gPartnerTrainerId = TRAINER_PARTNER(ScriptReadHalfword(ctx));
 };
 
-void CreateNPCTrainerPartyFromTrainer(struct Pokemon *party, const struct Trainer *trainer)
+// targetLevel 0 builds the party exactly as written. Otherwise every mon is raised by the same
+// number of levels so the strongest one reaches targetLevel (never lowered).
+void CreateNPCTrainerPartyScaled(struct Pokemon *party, const struct Trainer *trainer, u32 targetLevel)
 {
     s32 i;
     u8 monsCount;
+    u32 shift = 0;
 
     ZeroPartyMons(party);
 
@@ -2249,32 +2253,105 @@ void CreateNPCTrainerPartyFromTrainer(struct Pokemon *party, const struct Traine
     MakeTrainerGenerator(trainerGen, trainer);
     DoTrainerPartyPool(trainer, monIndices, monsCount, gBattleTypeFlags);
 
+    if (targetLevel != 0)
+    {
+        u32 highestLevel = 0;
+
+        for (i = 0; i < monsCount; i++)
+        {
+            if (trainer->party[monIndices[i]].lvl > highestLevel)
+                highestLevel = trainer->party[monIndices[i]].lvl;
+        }
+        shift = GetTrainerScalingShift(targetLevel, highestLevel);
+    }
+
     for (i = 0; i < monsCount; i++)
     {
         u32 monIndex = monIndices[i];
-        GenerateMonFromTrainerMon(&party[i], &trainer->party[monIndex], trainerGen);
+        const struct TrainerMon *trainerMon = &trainer->party[monIndex];
+
+        if (shift == 0)
+        {
+            GenerateMonFromTrainerMon(&party[i], trainerMon, trainerGen);
+        }
+        else
+        {
+            struct TrainerMon scaledMon = *trainerMon;
+            u32 level = scaledMon.lvl + shift;
+            u32 j;
+            bool32 hasListedMoves = FALSE;
+
+            scaledMon.lvl = level > MAX_LEVEL ? MAX_LEVEL : level;
+            GenerateMonFromTrainerMon(&party[i], &scaledMon, trainerGen);
+
+            for (j = 0; j < MAX_MON_MOVES; j++)
+            {
+                if (trainerMon->moves[j] != MOVE_NONE)
+                    hasListedMoves = TRUE;
+            }
+            // Listed moves are kept as written; unlisted ones follow the new species.
+            EvolveTrainerMonForLevel(&party[i], !hasListedMoves);
+        }
     }
     Free(trainerGen);
 }
 
-static void CreateNPCTrainerParty(struct Pokemon *party, u16 trainerNum)
+void CreateNPCTrainerPartyFromTrainer(struct Pokemon *party, const struct Trainer *trainer)
 {
-    if (!GetTrainerStructFromId(trainerNum)->overrideTrainer)
+    CreateNPCTrainerPartyScaled(party, trainer, 0);
+}
+
+static void CreateNPCTrainerPartyForBadges(struct Pokemon *party, u16 trainerNum, bool32 scale, u32 badgeCount)
+{
+    const struct Trainer *trainer = GetTrainerStructFromId(trainerNum);
+    u32 targetLevel = 0;
+    u16 tierId = TRAINER_NONE;
+
+    if (scale)
     {
-        CreateNPCTrainerPartyFromTrainer(party, GetTrainerStructFromId(trainerNum));
+        targetLevel = GetTrainerScalingTargetLevel(trainerNum, badgeCount);
+        tierId = GetTrainerTierId(trainerNum, badgeCount);
+    }
+
+    if (!trainer->overrideTrainer && tierId == TRAINER_NONE)
+    {
+        CreateNPCTrainerPartyScaled(party, trainer, targetLevel);
         return;
     }
 
     struct Trainer tempTrainer;
-    memcpy(&tempTrainer, GetTrainerStructFromId(trainerNum), sizeof(struct Trainer));
-    const struct Trainer *origTrainer = GetTrainerStructFromId(tempTrainer.overrideTrainer);
+    memcpy(&tempTrainer, trainer, sizeof(struct Trainer));
 
-    tempTrainer.party = origTrainer->party;
+    if (tierId != TRAINER_NONE)
+    {
+        // The boss keeps its own header (name, items, AI, battle type); only the team comes from the tier.
+        const struct Trainer *tierTrainer = GetTrainerStructFromId(tierId);
 
-    tempTrainer.poolSize = origTrainer->poolSize;
-    if (tempTrainer.partySize == 0)
-        tempTrainer.partySize = origTrainer->partySize;
-    CreateNPCTrainerPartyFromTrainer(party, (const struct Trainer *)(&tempTrainer));
+        tempTrainer.party = tierTrainer->party;
+        tempTrainer.partySize = tierTrainer->partySize;
+        tempTrainer.poolSize = tierTrainer->poolSize;
+        tempTrainer.poolRuleIndex = tierTrainer->poolRuleIndex;
+        tempTrainer.poolPickIndex = tierTrainer->poolPickIndex;
+        tempTrainer.poolPruneIndex = tierTrainer->poolPruneIndex;
+    }
+    else
+    {
+        const struct Trainer *origTrainer = GetTrainerStructFromId(tempTrainer.overrideTrainer);
+
+        tempTrainer.party = origTrainer->party;
+        tempTrainer.poolSize = origTrainer->poolSize;
+        if (tempTrainer.partySize == 0)
+            tempTrainer.partySize = origTrainer->partySize;
+    }
+    CreateNPCTrainerPartyScaled(party, &tempTrainer, targetLevel);
+}
+
+static void CreateNPCTrainerParty(struct Pokemon *party, u16 trainerNum)
+{
+    if (IsTrainerScalingActive())
+        CreateNPCTrainerPartyForBadges(party, trainerNum, TRUE, CountPlayerBadges());
+    else
+        CreateNPCTrainerPartyForBadges(party, trainerNum, FALSE, 0);
 }
 
 void CreateTrainerPartyForPlayer(void)

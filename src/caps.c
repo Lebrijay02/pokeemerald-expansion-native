@@ -5,20 +5,31 @@
 #include "pokemon.h"
 
 
+static const u32 sLevelCapFlagMap[][2] =
+{
+    {FLAG_BADGE01_GET, 15},
+    {FLAG_BADGE02_GET, 19},
+    {FLAG_BADGE03_GET, 24},
+    {FLAG_BADGE04_GET, 29},
+    {FLAG_BADGE05_GET, 31},
+    {FLAG_BADGE06_GET, 33},
+    {FLAG_BADGE07_GET, 42},
+    {FLAG_BADGE08_GET, 46},
+    {FLAG_IS_CHAMPION, 58},
+};
+
+// Level cap while the player owns `badgeCount` badges, read from the same table
+// as GetCurrentLevelCap so there is one source of truth. Entry N of the table is
+// the cap while N badges are owned (the first unset flag is badge N + 1).
+u32 GetBadgeCountLevelCap(u32 badgeCount)
+{
+    if (badgeCount >= ARRAY_COUNT(sLevelCapFlagMap))
+        badgeCount = ARRAY_COUNT(sLevelCapFlagMap) - 1;
+    return sLevelCapFlagMap[badgeCount][1];
+}
+
 u32 GetCurrentLevelCap(void)
 {
-    static const u32 sLevelCapFlagMap[][2] =
-    {
-        {FLAG_BADGE01_GET, 15},
-        {FLAG_BADGE02_GET, 19},
-        {FLAG_BADGE03_GET, 24},
-        {FLAG_BADGE04_GET, 29},
-        {FLAG_BADGE05_GET, 31},
-        {FLAG_BADGE06_GET, 33},
-        {FLAG_BADGE07_GET, 42},
-        {FLAG_BADGE08_GET, 46},
-        {FLAG_IS_CHAMPION, 58},
-    };
 
     u32 i;
 
