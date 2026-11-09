@@ -95,6 +95,9 @@ without output, retry with GNU's:
 Verified 2026-11-08: `make check TESTS="Spikes"` passed 4/4 with macOS's
 `stdbuf`. The first run took about 3.5 minutes, nearly all of it compiling the
 test ROM (`pokeemerald-test.elf`); later runs reuse that build.
+**The full suite has not been run on this Mac yet**, so there's no local
+baseline. Until there is one, compare a full run's totals with the 1.17.1
+reference below, and record the first full run's totals and time here.
 
 ```sh
 make -j"$(sysctl -n hw.ncpu)" check
