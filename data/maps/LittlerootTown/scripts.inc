@@ -145,6 +145,9 @@ LittlerootTown_EventScript_GoInsideWithMom::
 	applymovement LOCALID_LITTLEROOT_MOM, LittlerootTown_Movement_MomApproachPlayerAtTruck
 	waitmovement 0
 	msgbox LittlerootTown_Text_OurNewHomeLetsGoInside, MSGBOX_DEFAULT
+.if OW_RUNNING_SHOES_ON_ARRIVAL == TRUE
+	call LittlerootTown_EventScript_GiveRunningShoesOnArrival
+.endif
 	closemessage
 	applymovement LOCALID_LITTLEROOT_MOM, LittlerootTown_Movement_MomApproachDoor
 	applymovement LOCALID_PLAYER, LittlerootTown_Movement_PlayerApproachDoor
@@ -892,13 +895,34 @@ LittlerootTown_EventScript_SetReceivedRunningShoes::
 	release
 	end
 
+LittlerootTown_EventScript_GiveRunningShoesOnArrival::
+	msgbox LittlerootTown_Text_WearTheseRunningShoesOnArrival, MSGBOX_DEFAULT
+	playfanfare MUS_OBTAIN_ITEM
+	message LittlerootTown_Text_SwitchShoesWithRunningShoes
+	waitfanfare
+	setflag FLAG_RECEIVED_RUNNING_SHOES
+	setflag FLAG_SYS_B_DASH
+	msgbox LittlerootTown_Text_ExplainRunningShoes, MSGBOX_DEFAULT
+	msgbox LittlerootTown_Text_LetsGoInsideNow, MSGBOX_DEFAULT
+	return
+
+@ After the Pokédex, Mom still sees the player off. If the shoes were already given
+@ on arrival (OW_RUNNING_SHOES_ON_ARRIVAL), she skips the gift and only says goodbye.
 LittlerootTown_EventScript_GiveRunningShoes::
+	goto_if_set FLAG_RECEIVED_RUNNING_SHOES, LittlerootTown_EventScript_SeePlayerOff
 	msgbox LittlerootTown_Text_WearTheseRunningShoes, MSGBOX_DEFAULT
 	playfanfare MUS_OBTAIN_ITEM
 	message LittlerootTown_Text_SwitchShoesWithRunningShoes
 	waitfanfare
 	setflag FLAG_RECEIVED_RUNNING_SHOES
 	msgbox LittlerootTown_Text_ExplainRunningShoes, MSGBOX_DEFAULT
+	msgbox LittlerootTown_Text_ComeHomeIfAnythingHappens, MSGBOX_DEFAULT
+	closemessage
+	delay 30
+	return
+
+LittlerootTown_EventScript_SeePlayerOff::
+	msgbox LittlerootTown_Text_YouGotAPokemon, MSGBOX_DEFAULT
 	msgbox LittlerootTown_Text_ComeHomeIfAnythingHappens, MSGBOX_DEFAULT
 	closemessage
 	delay 30
@@ -929,6 +953,24 @@ LittlerootTown_Text_WearTheseRunningShoes:
 	.string "Here, honey! If you're going out on an\n"
 	.string "adventure, wear these RUNNING SHOES.\p"
 	.string "They'll put a zip in your step!$"
+
+LittlerootTown_Text_WearTheseRunningShoesOnArrival:
+	.string "Oh, that's right! Before we go in,\n"
+	.string "I have a little housewarming gift.\p"
+	.string "Here, honey! A new town means lots\n"
+	.string "to explore, so wear these RUNNING SHOES.\p"
+	.string "They'll put a zip in your step!$"
+
+LittlerootTown_Text_LetsGoInsideNow:
+	.string "MOM: All right, come on in, honey!$"
+
+LittlerootTown_Text_YouGotAPokemon:
+	.string "MOM: {PLAYER}! {PLAYER}! Did you\n"
+	.string "introduce yourself to PROF. BIRCH?\p"
+	.string "Oh! What an adorable POKéMON!\n"
+	.string "You got it from PROF. BIRCH. How nice!\p"
+	.string "You're your father's child, all right.\n"
+	.string "You look good together with POKéMON!$"
 
 LittlerootTown_Text_SwitchShoesWithRunningShoes:
 	.string "{PLAYER} switched shoes with the\n"
