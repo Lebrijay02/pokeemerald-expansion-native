@@ -1,8 +1,10 @@
 #include "global.h"
 #include "battle.h"
+#include "battle_partner.h"
 #include "battle_setup.h"
 #include "caps.h"
 #include "data.h"
+#include "difficulty.h"
 #include "event_data.h"
 #include "pokemon.h"
 #include "string_util.h"
@@ -10,6 +12,8 @@
 #include "test/test.h"
 #include "constants/abilities.h"
 #include "constants/battle.h"
+#include "constants/battle_partner.h"
+#include "constants/moves.h"
 #include "constants/opponents.h"
 
 // Caps are the player's level limit per badge count (src/caps.c), so the scaling curve is
@@ -364,3 +368,77 @@ TEST("Trainer scaling: moves are left alone when the caller does not ask for a r
         EXPECT_EQ(GetMonData(&mon, MON_DATA_MOVE1 + i), before[i]);
 }
 
+
+// In-game partners. The test build's PARTNER_STEVEN slot is Steven with Metang 42, Skarmory 43 and Aggron 44.
+static void SetBadges(u32 count)
+{
+    u32 i;
+
+    // The test build has one Steven per difficulty, and other tests leave the difficulty variable set.
+    SetCurrentDifficultyLevel(DIFFICULTY_NORMAL);
+
+    for (i = 0; i < NUM_BADGES; i++)
+    {
+        if (i < count)
+            FlagSet(FLAG_BADGE01_GET + i);
+        else
+            FlagClear(FLAG_BADGE01_GET + i);
+    }
+}
+
+TEST("Trainer scaling: Steven's partner team reaches the cap at 8 badges and Metang evolves")
+{
+    ASSUME(B_TRAINER_BADGE_SCALING);
+
+    SetBadges(8);
+    gBattleTypeFlags = BATTLE_TYPE_TRAINER | BATTLE_TYPE_DOUBLE | BATTLE_TYPE_TWO_OPPONENTS | BATTLE_TYPE_MULTI | BATTLE_TYPE_INGAME_PARTNER;
+    FillPartnerPartyScaled(TRAINER_PARTNER(PARTNER_STEVEN));
+    gBattleTypeFlags = 0;
+    SetBadges(0);
+
+    // Shift of 58 - 44 = 14 for the whole team.
+    EXPECT_EQ(GetPartyLevel(gParties[B_TRAINER_PARTNER], 0), 56);
+    EXPECT_EQ(GetPartyLevel(gParties[B_TRAINER_PARTNER], 1), 57);
+    EXPECT_EQ(GetPartyLevel(gParties[B_TRAINER_PARTNER], 2), 58);
+    EXPECT_EQ(GetMonData(&gParties[B_TRAINER_PARTNER][0], MON_DATA_SPECIES), SPECIES_METAGROSS);
+    // Listed moves are kept as written.
+    EXPECT_EQ(GetMonData(&gParties[B_TRAINER_PARTNER][0], MON_DATA_MOVE1), MOVE_LIGHT_SCREEN);
+    EXPECT_EQ(GetMonData(&gParties[B_TRAINER_PARTNER][0], MON_DATA_MOVE4), MOVE_METAL_CLAW);
+}
+
+TEST("Trainer scaling: Steven's partner team stays as written at 0 badges")
+{
+    ASSUME(B_TRAINER_BADGE_SCALING);
+
+    SetBadges(0);
+    gBattleTypeFlags = BATTLE_TYPE_TRAINER | BATTLE_TYPE_DOUBLE | BATTLE_TYPE_MULTI | BATTLE_TYPE_INGAME_PARTNER;
+    FillPartnerPartyScaled(TRAINER_PARTNER(PARTNER_STEVEN));
+    gBattleTypeFlags = 0;
+
+    EXPECT_EQ(GetPartyLevel(gParties[B_TRAINER_PARTNER], 0), 42);
+    EXPECT_EQ(GetPartyLevel(gParties[B_TRAINER_PARTNER], 2), 44);
+    EXPECT_EQ(GetMonData(&gParties[B_TRAINER_PARTNER][0], MON_DATA_SPECIES), SPECIES_METANG);
+}
+
+TEST("Trainer scaling: the unscaled FillPartnerParty never scales, whatever the badges")
+{
+    SetBadges(8);
+    gBattleTypeFlags = BATTLE_TYPE_TRAINER | BATTLE_TYPE_DOUBLE | BATTLE_TYPE_MULTI | BATTLE_TYPE_INGAME_PARTNER;
+    FillPartnerParty(TRAINER_PARTNER(PARTNER_STEVEN));
+    gBattleTypeFlags = 0;
+    SetBadges(0);
+
+    EXPECT_EQ(GetPartyLevel(gParties[B_TRAINER_PARTNER], 0), 42);
+    EXPECT_EQ(GetMonData(&gParties[B_TRAINER_PARTNER][0], MON_DATA_SPECIES), SPECIES_METANG);
+}
+
+TEST("Trainer scaling: a partner in a Frontier battle is not scaled")
+{
+    SetBadges(8);
+    gBattleTypeFlags = BATTLE_TYPE_TRAINER | BATTLE_TYPE_DOUBLE | BATTLE_TYPE_MULTI | BATTLE_TYPE_BATTLE_TOWER;
+    FillPartnerPartyScaled(TRAINER_PARTNER(PARTNER_STEVEN));
+    gBattleTypeFlags = 0;
+    SetBadges(0);
+
+    EXPECT_EQ(GetPartyLevel(gParties[B_TRAINER_PARTNER], 0), 42);
+}

@@ -8,6 +8,7 @@
 #include "difficulty.h"
 #include "malloc.h"
 #include "string_util.h"
+#include "trainer_scaling.h"
 #include "trainer_util.h"
 #include "text.h"
 
@@ -23,7 +24,7 @@ const struct Trainer gBattlePartners[DIFFICULTY_COUNT][PARTNER_COUNT] =
 
 #define STEVEN_OTID 61226
 
-void FillPartnerParty(u16 trainerId)
+static void FillPartnerPartyInternal(u16 trainerId, bool32 scale)
 {
     s32 i, j;
     u32 ivs, level;
@@ -42,10 +43,23 @@ void FillPartnerParty(u16 trainerId)
         MakePartnerGenerator(&partnerGen, partner);
         if (trainerId == TRAINER_PARTNER(PARTNER_STEVEN))
             partnerGen.otID = OTID_STRUCT_PRESET(STEVEN_OTID);
-        for (i = 0; i < lastIndex && i < partner->partySize; i++)
+        s32 monsCount = partner->partySize < lastIndex ? partner->partySize : lastIndex;
+        u32 shift = 0;
+
+        if (scale)
         {
-            GenerateMonFromTrainerMon(&gParties[B_TRAINER_PARTNER][i], &partner->party[i], &partnerGen);
+            // Same curve as overworld trainers, by the partner's class. Only the mons that will be used count.
+            u32 highestLevel = 0;
+
+            for (i = 0; i < monsCount; i++)
+            {
+                if (partner->party[i].lvl > highestLevel)
+                    highestLevel = partner->party[i].lvl;
+            }
+            shift = GetTrainerScalingShift(GetTrainerClassScalingTargetLevel(partner->trainerClass, CountPlayerBadges()), highestLevel);
         }
+        for (i = 0; i < monsCount; i++)
+            GenerateScaledTrainerMon(&gParties[B_TRAINER_PARTNER][i], &partner->party[i], &partnerGen, shift);
     }
     else if (trainerId == TRAINER_EREADER)
     {
@@ -105,4 +119,17 @@ void FillPartnerParty(u16 trainerId)
             SetMonData(&gParties[B_TRAINER_PARTNER][i], MON_DATA_OT_GENDER, &j);
         }
     }
+}
+
+// Partner parties stay as written (Battle Frontier, followers, debug).
+void FillPartnerParty(u16 trainerId)
+{
+    FillPartnerPartyInternal(trainerId, FALSE);
+}
+
+// For in-game story partners such as Steven in the Space Center: scaled by badge count when scaling is
+// active. gBattleTypeFlags must already be set, since IsTrainerScalingActive reads it.
+void FillPartnerPartyScaled(u16 trainerId)
+{
+    FillPartnerPartyInternal(trainerId, IsTrainerScalingActive());
 }

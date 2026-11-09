@@ -5,6 +5,7 @@
 #include "event_data.h"
 #include "pokemon.h"
 #include "trainer_scaling.h"
+#include "trainer_util.h"
 #include "constants/abilities.h"
 #include "constants/battle.h"
 #include "constants/battle_ai.h"
@@ -244,4 +245,30 @@ bool32 EvolveTrainerMonForLevel(struct Pokemon *mon, bool32 rerollMoves)
     }
     CalculateMonStats(mon);
     return TRUE;
+}
+
+void GenerateScaledTrainerMon(struct Pokemon *mon, const struct TrainerMon *trainerMon, struct TrainerGenerator *generator, u32 shift)
+{
+    struct TrainerMon scaledMon;
+    u32 level, i;
+    bool32 hasListedMoves = FALSE;
+
+    if (shift == 0)
+    {
+        GenerateMonFromTrainerMon(mon, trainerMon, generator);
+        return;
+    }
+
+    scaledMon = *trainerMon;
+    level = scaledMon.lvl + shift;
+    scaledMon.lvl = level > MAX_LEVEL ? MAX_LEVEL : level;
+    GenerateMonFromTrainerMon(mon, &scaledMon, generator);
+
+    for (i = 0; i < MAX_MON_MOVES; i++)
+    {
+        if (trainerMon->moves[i] != MOVE_NONE)
+            hasListedMoves = TRUE;
+    }
+    if (trainerMon->ability == ABILITY_NONE)
+        EvolveTrainerMonForLevel(mon, !hasListedMoves);
 }

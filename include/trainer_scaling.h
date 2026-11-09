@@ -29,6 +29,13 @@ u32 GetTrainerScalingShift(u32 targetLevel, u32 highestDataLevel);
 // boss with tiers. Only base boss IDs have tiers; rematch IDs and anything else return NULL.
 const struct Trainer *GetBossTierTeam(u16 trainerId, u32 badgeCount);
 
+// Builds one trainer mon with every level raised by `shift` (capped at 100). With a non-zero shift,
+// the mon then evolves for its new level and re-rolls its level-up moves if none are listed, unless
+// the data lists an Ability (so that ability is never swapped for another). Listed moves are kept.
+// Shared by overworld trainers (battle_setup.c) and in-game partners (battle_partner.c).
+struct TrainerGenerator;
+void GenerateScaledTrainerMon(struct Pokemon *mon, const struct TrainerMon *trainerMon, struct TrainerGenerator *generator, u32 shift);
+
 // Evolves `mon` while it is past a plain level-up evolution (including the personality and
 // gender splits such as Wurmple), then optionally re-rolls the level-up moveset for the new
 // species, then recalculates stats. Returns TRUE if the species changed.

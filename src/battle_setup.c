@@ -369,7 +369,7 @@ void BattleSetup_StartMultiBattle(void)
         gBattleTypeFlags = BATTLE_TYPE_TRAINER | BATTLE_TYPE_DOUBLE | BATTLE_TYPE_TWO_OPPONENTS | BATTLE_TYPE_MULTI | BATTLE_TYPE_INGAME_PARTNER;
     }
 
-    FillPartnerParty(gPartnerTrainerId);
+    FillPartnerPartyScaled(gPartnerTrainerId);
     if (gSpecialVar_0x8005 & MULTI_BATTLE_CHOOSE_MONS) // Skip mons restoring(done in the script)
         gBattleScripting.specialTrainerBattleType = 0xFF;
 
@@ -2266,35 +2266,7 @@ void CreateNPCTrainerPartyScaled(struct Pokemon *party, const struct Trainer *tr
     }
 
     for (i = 0; i < monsCount; i++)
-    {
-        u32 monIndex = monIndices[i];
-        const struct TrainerMon *trainerMon = &trainer->party[monIndex];
-
-        if (shift == 0)
-        {
-            GenerateMonFromTrainerMon(&party[i], trainerMon, trainerGen);
-        }
-        else
-        {
-            struct TrainerMon scaledMon = *trainerMon;
-            u32 level = scaledMon.lvl + shift;
-            u32 j;
-            bool32 hasListedMoves = FALSE;
-
-            scaledMon.lvl = level > MAX_LEVEL ? MAX_LEVEL : level;
-            GenerateMonFromTrainerMon(&party[i], &scaledMon, trainerGen);
-
-            for (j = 0; j < MAX_MON_MOVES; j++)
-            {
-                if (trainerMon->moves[j] != MOVE_NONE)
-                    hasListedMoves = TRUE;
-            }
-            // A mon with a listed ability does not evolve, so that ability is never swapped for another.
-            // Listed moves are kept as written; unlisted ones follow the new species.
-            if (trainerMon->ability == ABILITY_NONE)
-                EvolveTrainerMonForLevel(&party[i], !hasListedMoves);
-        }
-    }
+        GenerateScaledTrainerMon(&party[i], &trainer->party[monIndices[i]], trainerGen, shift);
     Free(trainerGen);
 }
 

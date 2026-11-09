@@ -5,5 +5,6 @@
 #include "constants/battle_partner.h"
 
 void FillPartnerParty(u16 trainerId);
+void FillPartnerPartyScaled(u16 trainerId);
 
 #endif // BATTLE_PARTNER_H
