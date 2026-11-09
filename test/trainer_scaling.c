@@ -8,6 +8,7 @@
 #include "string_util.h"
 #include "trainer_scaling.h"
 #include "test/test.h"
+#include "constants/abilities.h"
 #include "constants/battle.h"
 #include "constants/opponents.h"
 
@@ -25,6 +26,29 @@ TEST("Trainer scaling: the curve follows the level cap table")
     EXPECT_EQ(GetBadgeCountLevelCap(20), 58);
     for (i = 1; i <= NUM_BADGES; i++)
         EXPECT_GE(GetBadgeCountLevelCap(i), GetBadgeCountLevelCap(i - 1));
+}
+
+TEST("Trainer scaling: the curve agrees with GetCurrentLevelCap when badges are earned in order")
+{
+    u32 i, j;
+
+    ASSUME(B_LEVEL_CAP_TYPE == LEVEL_CAP_FLAG_LIST);
+    for (i = 0; i < NUM_BADGES; i++)
+        FlagClear(FLAG_BADGE01_GET + i);
+    FlagClear(FLAG_IS_CHAMPION);
+    for (i = 0; i <= NUM_BADGES; i++)
+    {
+        for (j = 0; j < NUM_BADGES; j++)
+        {
+            if (j < i)
+                FlagSet(FLAG_BADGE01_GET + j);
+            else
+                FlagClear(FLAG_BADGE01_GET + j);
+        }
+        EXPECT_EQ(GetCurrentLevelCap(), GetBadgeCountLevelCap(i));
+    }
+    for (i = 0; i < NUM_BADGES; i++)
+        FlagClear(FLAG_BADGE01_GET + i);
 }
 
 TEST("Trainer scaling: badges are counted by flag, in any order")
@@ -100,21 +124,46 @@ TEST("Trainer scaling: Elite Four, Champion, Steven and gym leader rematches are
         EXPECT_EQ(GetTrainerScalingTargetLevel(id, 4), 0);
 }
 
-TEST("Trainer scaling: boss tiers are looked up by base ID only, and tier IDs still follow the curve")
+TEST("Trainer scaling: boss tiers are looked up by base ID only")
 {
-    EXPECT_EQ(GetTrainerTierId(TRAINER_ROXANNE_1, 0), TRAINER_ROXANNE_TIER_EARLY);
-    EXPECT_EQ(GetTrainerTierId(TRAINER_ROXANNE_1, 2), TRAINER_ROXANNE_TIER_EARLY);
-    EXPECT_EQ(GetTrainerTierId(TRAINER_ROXANNE_1, 3), TRAINER_ROXANNE_TIER_MID);
-    EXPECT_EQ(GetTrainerTierId(TRAINER_ROXANNE_1, 5), TRAINER_ROXANNE_TIER_MID);
-    EXPECT_EQ(GetTrainerTierId(TRAINER_ROXANNE_1, 6), TRAINER_ROXANNE_TIER_LATE);
-    EXPECT_EQ(GetTrainerTierId(TRAINER_ROXANNE_1, 8), TRAINER_ROXANNE_TIER_LATE);
-    // A tier ID is never looked up again, and neither is a rematch or an ordinary trainer.
-    EXPECT_EQ(GetTrainerTierId(TRAINER_ROXANNE_TIER_MID, 4), TRAINER_NONE);
-    EXPECT_EQ(GetTrainerTierId(TRAINER_ROXANNE_2, 4), TRAINER_NONE);
-    EXPECT_EQ(GetTrainerTierId(TRAINER_CALVIN_1, 4), TRAINER_NONE);
-    // Tier teams are not excluded from scaling, unlike the rematches.
-    EXPECT_NE(GetTrainerScalingTargetLevel(TRAINER_ROXANNE_TIER_MID, 4), 0);
-    EXPECT_NE(GetTrainerScalingTargetLevel(TRAINER_ROXANNE_TIER_EARLY, 0), 0);
+    EXPECT_EQ(GetBossTierTeam(TRAINER_ROXANNE_1, 0), &gBossTierTeams[DIFFICULTY_NORMAL][BOSS_TIER_ROXANNE_EARLY]);
+    EXPECT_EQ(GetBossTierTeam(TRAINER_ROXANNE_1, 2), &gBossTierTeams[DIFFICULTY_NORMAL][BOSS_TIER_ROXANNE_EARLY]);
+    EXPECT_EQ(GetBossTierTeam(TRAINER_ROXANNE_1, 3), &gBossTierTeams[DIFFICULTY_NORMAL][BOSS_TIER_ROXANNE_MID]);
+    EXPECT_EQ(GetBossTierTeam(TRAINER_ROXANNE_1, 5), &gBossTierTeams[DIFFICULTY_NORMAL][BOSS_TIER_ROXANNE_MID]);
+    EXPECT_EQ(GetBossTierTeam(TRAINER_ROXANNE_1, 6), &gBossTierTeams[DIFFICULTY_NORMAL][BOSS_TIER_ROXANNE_LATE]);
+    EXPECT_EQ(GetBossTierTeam(TRAINER_ROXANNE_1, 8), &gBossTierTeams[DIFFICULTY_NORMAL][BOSS_TIER_ROXANNE_LATE]);
+    // Rematches and ordinary trainers have no tiers.
+    EXPECT_EQ(GetBossTierTeam(TRAINER_ROXANNE_2, 4), NULL);
+    EXPECT_EQ(GetBossTierTeam(TRAINER_CALVIN_1, 4), NULL);
+}
+
+TEST("Trainer scaling: tier teams use no trainer IDs")
+{
+    // The trainer table, and the flags that go with it, did not grow.
+    EXPECT_EQ(TRAINERS_COUNT_EMERALD, 855);
+}
+
+TEST("Trainer scaling: tier team sizes and aces match their badge tier")
+{
+    u32 i, j, tier = 0, size = 0, lowestBadges = 0;
+
+    PARAMETRIZE { tier = BOSS_TIER_ROXANNE_EARLY; size = 3; lowestBadges = 0; }
+    PARAMETRIZE { tier = BOSS_TIER_ROXANNE_MID;   size = 4; lowestBadges = 3; }
+    PARAMETRIZE { tier = BOSS_TIER_ROXANNE_LATE;  size = 5; lowestBadges = 6; }
+
+    const struct Trainer *team = &gBossTierTeams[DIFFICULTY_NORMAL][tier];
+    u32 highest = 0;
+
+    EXPECT_EQ((u32)team->partySize, size);
+    for (i = 0, j = 0; i < team->partySize; i++)
+    {
+        if (team->party[i].lvl > highest)
+            highest = team->party[i].lvl;
+        j++;
+    }
+    EXPECT_EQ(j, size);
+    // Written at the cap of the tier's lowest badge count, since scaling only raises levels.
+    EXPECT_EQ(highest, GetBadgeCountLevelCap(lowestBadges));
 }
 
 #define TEST_MON(_species, _lvl, ...) { .species = _species, .lvl = _lvl, .gender = TRAINER_MON_RANDOM_GENDER, __VA_ARGS__ }
@@ -219,6 +268,27 @@ TEST("Trainer scaling: scaled mons evolve, re-roll unlisted moves and keep liste
     // Moves listed in the data are kept as written.
     EXPECT_EQ(GetMonData(&party[1], MON_DATA_MOVE1), MOVE_SPLASH);
     EXPECT_EQ(GetMonData(&party[1], MON_DATA_MOVE2), MOVE_NONE);
+}
+
+static const struct TrainerMon sPartyListedAbility[] =
+{
+    TEST_MON(SPECIES_WURMPLE, 5, .ability = ABILITY_SHIELD_DUST),
+};
+
+static const struct Trainer sListedAbilityTrainer =
+{
+    .trainerClass = TRAINER_CLASS_YOUNGSTER,
+    .partySize = ARRAY_COUNT(sPartyListedAbility),
+    .party = sPartyListedAbility,
+};
+
+TEST("Trainer scaling: a mon with a listed ability is raised but does not evolve")
+{
+    struct Pokemon party[PARTY_SIZE];
+
+    CreateNPCTrainerPartyScaled(party, &sListedAbilityTrainer, 52);
+    EXPECT_EQ(GetPartyLevel(party, 0), 52);
+    EXPECT_EQ(GetMonData(&party[0], MON_DATA_SPECIES), SPECIES_WURMPLE);
 }
 
 TEST("Trainer scaling: Wurmple follows its personality split to a fully evolved species")

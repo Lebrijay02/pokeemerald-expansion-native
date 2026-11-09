@@ -12,6 +12,9 @@
 
 // Level Cap Configs
 #define B_EXP_CAP_TYPE                  EXP_CAP_NONE   // [EXP_CAP_NONE, EXP_CAP_HARD, EXP_CAP_SOFT] choose the type of level cap to apply
+// NOTE (open-world trainer scaling): trainers scale by how many badges the player owns (GetBadgeCountLevelCap),
+// but LEVEL_CAP_FLAG_LIST uses the first badge flag that is NOT set, so the two disagree when badges are earned out
+// of order (only badge 8: cap 15, trainers at 46). Make GetCurrentLevelCap count badges before enabling caps.
 #define B_LEVEL_CAP_TYPE                LEVEL_CAP_NONE // [LEVEL_CAP_NONE, LEVEL_CAP_FLAG_LIST, LEVEL_CAP_VARIABLE] choose the method to derive the level cap
 #define B_LEVEL_CAP_VARIABLE            0 // event variable used to derive level cap if B_LEVEL_CAP_TYPE is set to LEVEL_CAP_VARIABLE
 

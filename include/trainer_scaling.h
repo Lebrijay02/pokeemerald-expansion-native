@@ -1,6 +1,11 @@
 #ifndef GUARD_TRAINER_SCALING_H
 #define GUARD_TRAINER_SCALING_H
 
+#include "data.h"
+#include "constants/boss_tiers.h"
+
+extern const struct Trainer gBossTierTeams[DIFFICULTY_COUNT][BOSS_TIER_COUNT];
+
 // Badge-based trainer scaling. See B_TRAINER_BADGE_SCALING in include/config/battle.h.
 
 u32 CountPlayerBadges(void);
@@ -20,8 +25,9 @@ u32 GetTrainerClassScalingTargetLevel(u32 trainerClass, u32 badgeCount);
 // Raise only: never negative.
 u32 GetTrainerScalingShift(u32 targetLevel, u32 highestDataLevel);
 
-// Boss team for the player's badge tier, or TRAINER_NONE if `trainerId` has no tiers.
-u16 GetTrainerTierId(u16 trainerId, u32 badgeCount);
+// Boss team (src/data/boss_tiers.party) for the player's badge tier, or NULL if `trainerId` is not a
+// boss with tiers. Only base boss IDs have tiers; rematch IDs and anything else return NULL.
+const struct Trainer *GetBossTierTeam(u16 trainerId, u32 badgeCount);
 
 // Evolves `mon` while it is past a plain level-up evolution (including the personality and
 // gender splits such as Wurmple), then optionally re-rolls the level-up moveset for the new

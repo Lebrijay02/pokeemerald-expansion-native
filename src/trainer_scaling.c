@@ -5,8 +5,12 @@
 #include "event_data.h"
 #include "pokemon.h"
 #include "trainer_scaling.h"
+#include "constants/abilities.h"
 #include "constants/battle.h"
+#include "constants/battle_ai.h"
 #include "constants/flags.h"
+#include "constants/items.h"
+#include "constants/moves.h"
 #include "constants/opponents.h"
 #include "constants/pokemon.h"
 #include "constants/trainers.h"
@@ -20,13 +24,19 @@
 // count of its tier, because scaling only raises levels.
 #define BADGE_TIER_COUNT 3
 
+// Compiled by trainerproc from src/data/boss_tiers.party. Only DIFFICULTY_NORMAL is filled in.
+const struct Trainer gBossTierTeams[DIFFICULTY_COUNT][BOSS_TIER_COUNT] =
+{
+#include "data/boss_tiers.h"
+};
+
 static const struct BossTiers
 {
     u16 baseTrainer;
-    u16 tierTrainer[BADGE_TIER_COUNT];
+    u8 tierTeam[BADGE_TIER_COUNT];
 } sBossTiers[] =
 {
-    { TRAINER_ROXANNE_1, { TRAINER_ROXANNE_TIER_EARLY, TRAINER_ROXANNE_TIER_MID, TRAINER_ROXANNE_TIER_LATE } },
+    { TRAINER_ROXANNE_1, { BOSS_TIER_ROXANNE_EARLY, BOSS_TIER_ROXANNE_MID, BOSS_TIER_ROXANNE_LATE } },
 };
 
 // Gym leader rematches (_2 to _5) stay as written, so Match Call rematches are untouched.
@@ -83,7 +93,8 @@ u32 CountPlayerBadges(void)
 
 bool32 IsTrainerScalingActive(void)
 {
-    if (!B_TRAINER_BADGE_SCALING)
+    // The trainer IDs below are Emerald's; FRLG has a different trainer table.
+    if (!B_TRAINER_BADGE_SCALING || IS_FRLG)
         return FALSE;
     return !(gBattleTypeFlags & BATTLE_TYPES_NOT_SCALED);
 }
@@ -117,11 +128,10 @@ u32 GetTrainerScalingShift(u32 targetLevel, u32 highestDataLevel)
     return targetLevel - highestDataLevel;
 }
 
-u16 GetTrainerTierId(u16 trainerId, u32 badgeCount)
+const struct Trainer *GetBossTierTeam(u16 trainerId, u32 badgeCount)
 {
     u32 i, tier;
 
-    // Only base bosses are looked up. A tier ID passed in here finds nothing.
     for (i = 0; i < ARRAY_COUNT(sBossTiers); i++)
     {
         if (sBossTiers[i].baseTrainer != trainerId)
@@ -129,9 +139,9 @@ u16 GetTrainerTierId(u16 trainerId, u32 badgeCount)
         tier = badgeCount / 3;
         if (tier >= BADGE_TIER_COUNT)
             tier = BADGE_TIER_COUNT - 1;
-        return sBossTiers[i].tierTrainer[tier];
+        return &gBossTierTeams[DIFFICULTY_NORMAL][sBossTiers[i].tierTeam[tier]];
     }
-    return TRAINER_NONE;
+    return NULL;
 }
 
 // Only conditions that depend on the mon alone are accepted. Anything that reads the player
@@ -189,7 +199,8 @@ static enum Species GetLevelEvolutionTarget(struct Pokemon *mon, enum Species sp
     {
         if (evolutions[i].method != EVO_LEVEL || evolutions[i].param == 0 || level < evolutions[i].param)
             continue;
-        if (evolutions[i].targetSpecies == SPECIES_NONE || !EvolutionConditionsAllowed(mon, evolutions[i].params))
+        // A target that is disabled in include/config/species_enabled.h sanitizes to SPECIES_NONE.
+        if (SanitizeSpeciesId(evolutions[i].targetSpecies) == SPECIES_NONE || !EvolutionConditionsAllowed(mon, evolutions[i].params))
             continue;
         return evolutions[i].targetSpecies;
     }

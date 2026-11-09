@@ -1,0 +1,133 @@
+/*
+Boss teams per badge tier (see src/trainer_scaling.c). Compiled by trainerproc into
+src/data/boss_tiers.h, like battle_partners.party, so they use no trainer IDs and have no
+trainer flags. The boss itself (e.g. TRAINER_ROXANNE_1 in trainers.party) supplies the name,
+pic, AI and battle type; a tier supplies the team, and the bag items if it lists any.
+The strongest mon of a tier is written at the level cap of the tier's lowest badge count.
+*/
+
+=== BOSS_TIER_ROXANNE_EARLY ===
+Name: ROXANNE
+Class: Leader
+Pic: Leader Roxanne
+Gender: Female
+Music: Female
+Items: Potion / Potion
+Double Battle: No
+AI: Basic Trainer
+
+Geodude
+Level: 13
+IVs: 12 HP / 12 Atk / 12 Def / 12 SpA / 12 SpD / 12 Spe
+- Defense Curl
+- Rock Throw
+- Magnitude
+- Rock Polish
+
+Aron
+Level: 14
+IVs: 12 HP / 12 Atk / 12 Def / 12 SpA / 12 SpD / 12 Spe
+- Tackle
+- Harden
+- Metal Claw
+- Rock Tomb
+
+Nosepass @ Oran Berry
+Level: 15
+IVs: 12 HP / 12 Atk / 12 Def / 12 SpA / 12 SpD / 12 Spe
+- Block
+- Harden
+- Rock Tomb
+- Thunder Wave
+
+=== BOSS_TIER_ROXANNE_MID ===
+Name: ROXANNE
+Class: Leader
+Pic: Leader Roxanne
+Gender: Female
+Music: Female
+Items: Super Potion / Super Potion
+Double Battle: No
+AI: Basic Trainer
+
+Graveler
+Level: 26
+IVs: 20 HP / 20 Atk / 20 Def / 20 SpA / 20 SpD / 20 Spe
+- Rock Slide
+- Earthquake
+- Defense Curl
+- Rollout
+
+Lairon
+Level: 27
+IVs: 20 HP / 20 Atk / 20 Def / 20 SpA / 20 SpD / 20 Spe
+- Iron Tail
+- Rock Tomb
+- Metal Sound
+- Take Down
+
+Lunatone
+Level: 28
+IVs: 20 HP / 20 Atk / 20 Def / 20 SpA / 20 SpD / 20 Spe
+- Psychic
+- Rock Slide
+- Hypnosis
+- Cosmic Power
+
+Nosepass @ Sitrus Berry
+Level: 29
+IVs: 20 HP / 20 Atk / 20 Def / 20 SpA / 20 SpD / 20 Spe
+- Thunder Wave
+- Rock Slide
+- Earthquake
+- Rest
+
+=== BOSS_TIER_ROXANNE_LATE ===
+Name: ROXANNE
+Class: Leader
+Pic: Leader Roxanne
+Gender: Female
+Music: Female
+Items: Hyper Potion / Hyper Potion
+Double Battle: No
+AI: Basic Trainer
+
+Golem
+Level: 38
+IVs: 31 HP / 31 Atk / 31 Def / 31 SpA / 31 SpD / 31 Spe
+- Earthquake
+- Stone Edge
+- Explosion
+- Rock Blast
+
+Lunatone
+Level: 39
+IVs: 31 HP / 31 Atk / 31 Def / 31 SpA / 31 SpD / 31 Spe
+- Psychic
+- Rock Slide
+- Calm Mind
+- Moonlight
+
+Solrock
+Level: 39
+IVs: 31 HP / 31 Atk / 31 Def / 31 SpA / 31 SpD / 31 Spe
+- Rock Slide
+- Flamethrower
+- Psychic
+- Cosmic Power
+
+Armaldo @ Sitrus Berry
+Level: 40
+IVs: 31 HP / 31 Atk / 31 Def / 31 SpA / 31 SpD / 31 Spe
+- Rock Blast
+- X-Scissor
+- Earthquake
+- Swords Dance
+
+Aggron @ Hard Stone
+Level: 42
+IVs: 31 HP / 31 Atk / 31 Def / 31 SpA / 31 SpD / 31 Spe
+- Iron Head
+- Stone Edge
+- Earthquake
+- Thunder Wave

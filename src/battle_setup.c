@@ -2289,8 +2289,10 @@ void CreateNPCTrainerPartyScaled(struct Pokemon *party, const struct Trainer *tr
                 if (trainerMon->moves[j] != MOVE_NONE)
                     hasListedMoves = TRUE;
             }
+            // A mon with a listed ability does not evolve, so that ability is never swapped for another.
             // Listed moves are kept as written; unlisted ones follow the new species.
-            EvolveTrainerMonForLevel(&party[i], !hasListedMoves);
+            if (trainerMon->ability == ABILITY_NONE)
+                EvolveTrainerMonForLevel(&party[i], !hasListedMoves);
         }
     }
     Free(trainerGen);
@@ -2304,16 +2306,16 @@ void CreateNPCTrainerPartyFromTrainer(struct Pokemon *party, const struct Traine
 static void CreateNPCTrainerPartyForBadges(struct Pokemon *party, u16 trainerNum, bool32 scale, u32 badgeCount)
 {
     const struct Trainer *trainer = GetTrainerStructFromId(trainerNum);
+    const struct Trainer *tierTeam = NULL;
     u32 targetLevel = 0;
-    u16 tierId = TRAINER_NONE;
 
     if (scale)
     {
         targetLevel = GetTrainerScalingTargetLevel(trainerNum, badgeCount);
-        tierId = GetTrainerTierId(trainerNum, badgeCount);
+        tierTeam = GetBossTierTeam(trainerNum, badgeCount);
     }
 
-    if (!trainer->overrideTrainer && tierId == TRAINER_NONE)
+    if (!trainer->overrideTrainer && tierTeam == NULL)
     {
         CreateNPCTrainerPartyScaled(party, trainer, targetLevel);
         return;
@@ -2322,17 +2324,29 @@ static void CreateNPCTrainerPartyForBadges(struct Pokemon *party, u16 trainerNum
     struct Trainer tempTrainer;
     memcpy(&tempTrainer, trainer, sizeof(struct Trainer));
 
-    if (tierId != TRAINER_NONE)
+    if (tierTeam != NULL)
     {
-        // The boss keeps its own header (name, items, AI, battle type); only the team comes from the tier.
-        const struct Trainer *tierTrainer = GetTrainerStructFromId(tierId);
+        // The boss keeps its own header (name, AI, battle type); the team comes from the tier.
+        u32 i;
+        bool32 tierHasItems = FALSE;
 
-        tempTrainer.party = tierTrainer->party;
-        tempTrainer.partySize = tierTrainer->partySize;
-        tempTrainer.poolSize = tierTrainer->poolSize;
-        tempTrainer.poolRuleIndex = tierTrainer->poolRuleIndex;
-        tempTrainer.poolPickIndex = tierTrainer->poolPickIndex;
-        tempTrainer.poolPruneIndex = tierTrainer->poolPruneIndex;
+        for (i = 0; i < MAX_TRAINER_ITEMS; i++)
+        {
+            if (tierTeam->items[i] != ITEM_NONE)
+                tierHasItems = TRUE;
+        }
+        // A tier with no items listed leaves the boss's own items alone.
+        if (tierHasItems)
+        {
+            for (i = 0; i < MAX_TRAINER_ITEMS; i++)
+                tempTrainer.items[i] = tierTeam->items[i];
+        }
+        tempTrainer.party = tierTeam->party;
+        tempTrainer.partySize = tierTeam->partySize;
+        tempTrainer.poolSize = tierTeam->poolSize;
+        tempTrainer.poolRuleIndex = tierTeam->poolRuleIndex;
+        tempTrainer.poolPickIndex = tierTeam->poolPickIndex;
+        tempTrainer.poolPruneIndex = tierTeam->poolPruneIndex;
     }
     else
     {
