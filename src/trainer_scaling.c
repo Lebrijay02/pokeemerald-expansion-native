@@ -52,7 +52,7 @@ static bool32 IsNeverScaled(u16 trainerId)
     return trainerId == TRAINER_WALLACE || trainerId == TRAINER_STEVEN;
 }
 
-// Offset from the level cap. Bosses sit on the cap; everyone else sits below it.
+// Offset from the curve level. Bosses sit on the curve; everyone else sits below it.
 static s32 GetClassLevelOffset(u32 trainerClass)
 {
     switch (trainerClass)
@@ -100,6 +100,16 @@ bool32 IsTrainerScalingActive(void)
     return !(gBattleTypeFlags & BATTLE_TYPES_NOT_SCALED);
 }
 
+// Curve level before class offsets: the level cap for the badge count, except with 0 badges,
+// where it starts lower (B_TRAINER_SCALING_ZERO_BADGE_LEVEL) because the first battles come
+// right after the player gets a Lv 5 starter.
+static u32 GetScalingCurveLevel(u32 badgeCount)
+{
+    if (badgeCount == 0)
+        return B_TRAINER_SCALING_ZERO_BADGE_LEVEL;
+    return GetBadgeCountLevelCap(badgeCount);
+}
+
 u32 GetTrainerClassScalingTargetLevel(u32 trainerClass, u32 badgeCount)
 {
     s32 target;
@@ -107,7 +117,7 @@ u32 GetTrainerClassScalingTargetLevel(u32 trainerClass, u32 badgeCount)
     if (trainerClass == TRAINER_CLASS_ELITE_FOUR || trainerClass == TRAINER_CLASS_CHAMPION)
         return 0;
 
-    target = GetBadgeCountLevelCap(badgeCount) + GetClassLevelOffset(trainerClass);
+    target = GetScalingCurveLevel(badgeCount) + GetClassLevelOffset(trainerClass);
     if (target < 1)
         target = 1;
     if (target > MAX_LEVEL)

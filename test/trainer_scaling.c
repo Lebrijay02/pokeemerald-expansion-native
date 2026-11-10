@@ -100,7 +100,7 @@ TEST("Trainer scaling: bosses sit on the cap, ordinary trainers below it")
 {
     // Gym leader and rival: on the cap.
     EXPECT_EQ(GetTrainerClassScalingTargetLevel(TRAINER_CLASS_LEADER, 2), 24);
-    EXPECT_EQ(GetTrainerClassScalingTargetLevel(TRAINER_CLASS_RIVAL, 0), 15);
+    EXPECT_EQ(GetTrainerClassScalingTargetLevel(TRAINER_CLASS_RIVAL, 1), 19);
     // Magma and Aqua leaders: cap + 2.
     EXPECT_EQ(GetTrainerClassScalingTargetLevel(TRAINER_CLASS_MAGMA_LEADER, 4), 33);
     EXPECT_EQ(GetTrainerClassScalingTargetLevel(TRAINER_CLASS_AQUA_LEADER, 4), 33);
@@ -114,6 +114,18 @@ TEST("Trainer scaling: bosses sit on the cap, ordinary trainers below it")
     // The Elite Four and Champion classes are never scaled.
     EXPECT_EQ(GetTrainerClassScalingTargetLevel(TRAINER_CLASS_ELITE_FOUR, 8), 0);
     EXPECT_EQ(GetTrainerClassScalingTargetLevel(TRAINER_CLASS_CHAMPION, 8), 0);
+}
+
+TEST("Trainer scaling: with 0 badges the curve starts below the level cap")
+{
+    ASSUME(B_TRAINER_SCALING_ZERO_BADGE_LEVEL < GetBadgeCountLevelCap(0));
+    EXPECT_EQ(GetTrainerClassScalingTargetLevel(TRAINER_CLASS_RIVAL, 0), B_TRAINER_SCALING_ZERO_BADGE_LEVEL);
+    EXPECT_LT(GetTrainerClassScalingTargetLevel(TRAINER_CLASS_LEADER, 0), GetBadgeCountLevelCap(0));
+    // Offsets still apply, clamped to Lv 1.
+    EXPECT_EQ(GetTrainerClassScalingTargetLevel(TRAINER_CLASS_MAGMA_LEADER, 0), B_TRAINER_SCALING_ZERO_BADGE_LEVEL + 2);
+    EXPECT_GE(GetTrainerClassScalingTargetLevel(TRAINER_CLASS_YOUNGSTER, 0), 1);
+    // From 1 badge on, the curve is the level cap again.
+    EXPECT_EQ(GetTrainerClassScalingTargetLevel(TRAINER_CLASS_RIVAL, 1), GetBadgeCountLevelCap(1));
 }
 
 TEST("Trainer scaling: Elite Four, Champion, Steven and gym leader rematches are never scaled")
