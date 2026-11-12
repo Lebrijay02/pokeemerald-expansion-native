@@ -386,6 +386,8 @@ const u16 gObjectEventPal_HoOh[] = INCGFX_U16("graphics/object_events/palettes/h
 const u16 gObjectEventPal_Lugia[] = INCGFX_U16("graphics/object_events/palettes/lugia.pal", ".gbapal");
 
 const u16 gObjectEventPaletteLight[] = INCGFX_U16("graphics/object_events/palettes/light.pal", ".gbapal");
+const u16 gObjectEventPal_LampPost[] = INCGFX_U16("graphics/object_events/palettes/lamp_post.pal", ".gbapal");
+const u16 gObjectEventPal_LampPostLit[] = INCGFX_U16("graphics/object_events/palettes/lamp_post_lit.pal", ".gbapal");
 const u16 gObjectEventPaletteLight2[] = INCGFX_U16("graphics/object_events/palettes/light2.pal", ".gbapal");
 const u16 gObjectEventPal_Substitute[] = INCGFX_U16("graphics/object_events/pics/pokemon_old/substitute.png", ".gbapal");
 
@@ -463,6 +465,7 @@ const u32 gFieldEffectObjectPic_CaveDust[] = INCGFX_U32("graphics/field_effects/
 const u16 gFieldEffectObjectPalette_CaveDust[] = INCGFX_U16("graphics/field_effects/palettes/cave_dust.pal", ".gbapal");
 
 const u32 gObjectEventPic_ApricornTree[] = INCGFX_U32("graphics/object_events/pics/misc/apricorn_tree.png", ".4bpp", "-mwidth 2 -mheight 2");
+const u16 gObjectEventPic_LampPost[] = INCGFX_U16("graphics/object_events/pics/misc/lamp_post.png", ".4bpp");
 
 const u32 gFieldEffectObjectPic_ShinySparkle[] = INCGFX_U32("graphics/field_effects/pics/shiny_sparkle.png", ".4bpp", "-mwidth 2 -mheight 4");
 

@@ -583,6 +583,7 @@ static const struct SpritePalette sObjectEventSpritePalettes[] = {
     {gObjectEventPaletteLight2,             OBJ_EVENT_PAL_TAG_LIGHT_2},
     {gObjectEventPaletteEmotes,             OBJ_EVENT_PAL_TAG_EMOTES},
     {gObjectEventPaletteNeonLight,          OBJ_EVENT_PAL_TAG_NEON_LIGHT},
+    {gObjectEventPal_LampPost,              OBJ_EVENT_PAL_TAG_LAMP_POST},
 #ifdef BUGFIX
     {NULL,                                  OBJ_EVENT_PAL_TAG_NONE},
 #else
@@ -2823,7 +2824,10 @@ static void SpawnLightSprite(s16 x, s16 y, s16 camX, s16 camY, u32 lightType)
     case LIGHT_TYPE_BALL:
         sprite->centerToCornerVecX = -(32 >> 1);
         sprite->centerToCornerVecY = -(32 >> 1);
-        sprite->oam.priority = 1;
+        // Same layer as object events but behind all of them, so lamp posts
+        // and characters draw over the glow instead of under it.
+        sprite->oam.priority = 2;
+        sprite->subpriority = 0xFF;
         sprite->oam.objMode = ST_OAM_OBJ_BLEND;
         sprite->oam.affineMode = ST_OAM_AFFINE_NORMAL;
         sprite->x += 8;
@@ -2839,6 +2843,111 @@ static void SpawnLightSprite(s16 x, s16 y, s16 camX, s16 camY, u32 lightType)
         break;
     }
 }
+
+// Lamp light on the player: distances in pixels, strength out of 256
+#define LAMP_FULL_LIGHT_DIST  16  // full strength within one tile of a light
+#define LAMP_LIGHT_RANGE      48  // no effect beyond three tiles
+#define LAMP_MAX_STRENGTH     144 // how far the player's palette moves from night-tinted toward untinted
+
+EWRAM_DATA static bool8 sPlayerLampLit = FALSE;
+EWRAM_DATA static bool8 sLampPostLit = FALSE;
+
+// At night, shows lamp posts with their lit (warm) palette instead of the night-tinted one.
+static void UpdateLampPostPalette(bool32 night)
+{
+    u32 paletteNum = IndexOfSpritePaletteTag(OBJ_EVENT_PAL_TAG_LAMP_POST);
+
+    if (paletteNum >= 16) // no lamp post on screen
+    {
+        sLampPostLit = FALSE;
+        return;
+    }
+
+    if (night)
+    {
+        // Re-apply every frame while lit: weather and time updates rewrite the faded buffer
+        CpuCopy16(gObjectEventPal_LampPostLit, &gPlttBufferFaded[OBJ_PLTT_ID(paletteNum)], PLTT_SIZE_4BPP);
+        sLampPostLit = TRUE;
+    }
+    else if (sLampPostLit)
+    {
+        // Back to the unlit palette with the current time-of-day tint
+        CpuCopy16(&gPlttBufferUnfaded[OBJ_PLTT_ID(paletteNum)], &gPlttBufferFaded[OBJ_PLTT_ID(paletteNum)], PLTT_SIZE_4BPP);
+        UpdateSpritePaletteWithTime(paletteNum);
+        sLampPostLit = FALSE;
+    }
+}
+
+// At night, mixes the player's palette back toward its untinted colors by how
+// close the player is to the nearest ball light.
+static void UpdatePlayerLampLight(bool32 night)
+{
+    struct Sprite *player;
+    u32 i, paletteNum, strength = 0;
+    s32 playerX, playerY;
+
+    player = &gSprites[gPlayerAvatar.spriteId];
+    paletteNum = player->oam.paletteNum;
+
+    if (night && !IS_BLEND_IMMUNE_TAG(GetSpritePaletteTagByPaletteNum(paletteNum)))
+    {
+        playerX = player->x + player->x2;
+        playerY = player->y + player->y2;
+        for (i = 0; i < MAX_SPRITES; i++)
+        {
+            struct Sprite *light = &gSprites[i];
+            s32 dx, dy, dist;
+            u32 lightStrength;
+
+            if (!light->inUse || light->callback != UpdateLightSprite || light->sLightType != LIGHT_TYPE_BALL)
+                continue;
+            dx = abs(light->x - playerX);
+            dy = abs(light->y - playerY);
+            dist = max(dx, dy) + min(dx, dy) / 2; // cheap approximation of the straight-line distance
+            if (dist >= LAMP_LIGHT_RANGE)
+                continue;
+            if (dist <= LAMP_FULL_LIGHT_DIST)
+                lightStrength = LAMP_MAX_STRENGTH;
+            else
+                lightStrength = LAMP_MAX_STRENGTH * (LAMP_LIGHT_RANGE - dist) / (LAMP_LIGHT_RANGE - LAMP_FULL_LIGHT_DIST);
+            strength = max(strength, lightStrength);
+        }
+    }
+
+    if (strength == 0)
+    {
+        if (sPlayerLampLit)
+        {
+            UpdateSpritePaletteWithTime(paletteNum); // back to the plain night tint
+            sPlayerLampLit = FALSE;
+        }
+        return;
+    }
+
+    // Re-apply every frame while lit: weather and time updates rewrite the faded buffer
+    UpdateSpritePaletteWithTime(paletteNum);
+    AvgPaletteWeighted(&gPlttBufferFaded[OBJ_PLTT_ID(paletteNum)], &gPlttBufferUnfaded[OBJ_PLTT_ID(paletteNum)],
+                       &gPlttBufferFaded[OBJ_PLTT_ID(paletteNum)], 256 - strength);
+    sPlayerLampLit = TRUE;
+}
+
+// Night lighting from lamps. Called once per overworld frame.
+void UpdateLampLighting(void)
+{
+    bool32 night;
+
+    if (gPaletteFade.active)
+        return;
+
+    night = (gTimeOfDay == TIME_NIGHT && MapHasNaturalLight(gMapHeader.mapType));
+    UpdateLampPostPalette(night);
+    if (OW_LAMP_LIGHTS_PLAYER)
+        UpdatePlayerLampLight(night);
+}
+
+#undef LAMP_FULL_LIGHT_DIST
+#undef LAMP_LIGHT_RANGE
+#undef LAMP_MAX_STRENGTH
 
 #undef sLightType
 #undef sLightXPos

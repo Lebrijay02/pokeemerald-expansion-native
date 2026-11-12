@@ -339,6 +339,7 @@ extern const struct ObjectEventGraphicsInfo gObjectEventGraphicsInfo_Ruby;
 extern const struct ObjectEventGraphicsInfo gObjectEventGraphicsInfo_Sapphire;
 extern const struct ObjectEventGraphicsInfo gObjectEventGraphicsInfo_OldAmber;
 extern const struct ObjectEventGraphicsInfo gObjectEventGraphicsInfo_GymSign;
+extern const struct ObjectEventGraphicsInfo gObjectEventGraphicsInfo_LampPost;
 extern const struct ObjectEventGraphicsInfo gObjectEventGraphicsInfo_Sign;
 extern const struct ObjectEventGraphicsInfo gObjectEventGraphicsInfo_TrainerTips;
 extern const struct ObjectEventGraphicsInfo gObjectEventGraphicsInfo_Clipboard;
@@ -645,6 +646,7 @@ const struct ObjectEventGraphicsInfo *const gObjectEventGraphicsInfoPointers[NUM
     [OBJ_EVENT_GFX_OW_MON] =                   &gObjectEventGraphicsInfo_Follower,
     [OBJ_EVENT_GFX_LIGHT_SPRITE] =             &gObjectEventGraphicsInfo_BallLight,
     [OBJ_EVENT_GFX_APRICORN_TREE] =            &gObjectEventGraphicsInfo_ApricornTree,
+    [OBJ_EVENT_GFX_LAMP_POST]                = &gObjectEventGraphicsInfo_LampPost,
 #if IS_FRLG
     [OBJ_EVENT_GFX_RED_NORMAL] =               &gObjectEventGraphicsInfo_RedNormal,
     [OBJ_EVENT_GFX_RED_BIKE] =                 &gObjectEventGraphicsInfo_RedBike,
