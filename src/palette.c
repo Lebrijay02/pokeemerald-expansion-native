@@ -825,6 +825,19 @@ static void UpdateBlendRegisters(void)
     }
 }
 
+// While a time-of-day fade toward normal colors is running (e.g. fading in from black
+// after a warp outdoors), returns the blend coefficient (0-16) shown by its last step.
+// Returns -1 when no such fade is running.
+s32 GetTimeOfDayFadeInCoeff(void)
+{
+    if (!gPaletteFade.active || gPaletteFade.mode != TIME_OF_DAY_FADE || !gPaletteFade.yDec)
+        return -1;
+    if (gPaletteFade.softwareFadeFinishing)
+        return 0;
+    // UpdateTimeOfDayPaletteFade steps y after blending, so the shown coefficient is one step back
+    return min(gPaletteFade.y + gPaletteFade.deltaY, 16);
+}
+
 static bool32 IsSoftwarePaletteFadeFinishing(void)
 {
     if (gPaletteFade.softwareFadeFinishing)
