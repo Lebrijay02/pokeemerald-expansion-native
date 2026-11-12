@@ -104,6 +104,7 @@ void BeginFastPaletteFade(u32 submode);
 void BeginHardwarePaletteFade(u32 blendCnt, u32 delay, u32 y, u32 targetY, u32 shouldResetBlendRegisters);
 void BlendPalettes(u32 selectedPalettes, u8 coeff, u32 color);
 void BlendPalettesFine(u32 palettes, u16 *src, u16 *dst, u32 coeff, u32 color);
+s32 GetTimeOfDayFadeInCoeff(void);
 void BlendPalettesUnfaded(u32 selectedPalettes, u8 coeff, u32 color);
 void BlendPalettesGradually(u32 selectedPalettes, s8 delay, u8 coeff, u8 coeffTarget, u16 color, u8 priority, u8 id);
 void TimeMixPalettes(u32 palettes, u16 *src, u16 *dst, struct BlendSettings *blend0, struct BlendSettings *blend1, u16 weight0);

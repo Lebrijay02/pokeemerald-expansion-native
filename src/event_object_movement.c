@@ -2852,8 +2852,17 @@ static void SpawnLightSprite(s16 x, s16 y, s16 camX, s16 camY, u32 lightType)
 EWRAM_DATA static bool8 sPlayerLampLit = FALSE;
 EWRAM_DATA static bool8 sLampPostLit = FALSE;
 
+// While a fade-in is running, darkens a palette just written to the faded buffer by
+// the amount the fade currently applies to the rest of the screen.
+static void ApplyLampFade(u32 paletteNum, s32 fadeCoeff)
+{
+    if (fadeCoeff > 0)
+        BlendPalettesFine(1, &gPlttBufferFaded[OBJ_PLTT_ID(paletteNum)], &gPlttBufferFaded[OBJ_PLTT_ID(paletteNum)],
+                          fadeCoeff, gPaletteFade.blendColor);
+}
+
 // At night, shows lamp posts with their lit (warm) palette instead of the night-tinted one.
-static void UpdateLampPostPalette(bool32 night)
+static void UpdateLampPostPalette(bool32 night, s32 fadeCoeff)
 {
     u32 paletteNum = IndexOfSpritePaletteTag(OBJ_EVENT_PAL_TAG_LAMP_POST);
 
@@ -2867,9 +2876,10 @@ static void UpdateLampPostPalette(bool32 night)
     {
         // Re-apply every frame while lit: weather and time updates rewrite the faded buffer
         CpuCopy16(gObjectEventPal_LampPostLit, &gPlttBufferFaded[OBJ_PLTT_ID(paletteNum)], PLTT_SIZE_4BPP);
+        ApplyLampFade(paletteNum, fadeCoeff);
         sLampPostLit = TRUE;
     }
-    else if (sLampPostLit)
+    else if (sLampPostLit && fadeCoeff < 0) // during a fade, the fade restores it
     {
         // Back to the unlit palette with the current time-of-day tint
         CpuCopy16(&gPlttBufferUnfaded[OBJ_PLTT_ID(paletteNum)], &gPlttBufferFaded[OBJ_PLTT_ID(paletteNum)], PLTT_SIZE_4BPP);
@@ -2880,7 +2890,7 @@ static void UpdateLampPostPalette(bool32 night)
 
 // At night, mixes the player's palette back toward its untinted colors by how
 // close the player is to the nearest ball light.
-static void UpdatePlayerLampLight(bool32 night)
+static void UpdatePlayerLampLight(bool32 night, s32 fadeCoeff)
 {
     struct Sprite *player;
     u32 i, paletteNum, strength = 0;
@@ -2916,7 +2926,7 @@ static void UpdatePlayerLampLight(bool32 night)
 
     if (strength == 0)
     {
-        if (sPlayerLampLit)
+        if (sPlayerLampLit && fadeCoeff < 0) // during a fade, the fade restores it
         {
             UpdateSpritePaletteWithTime(paletteNum); // back to the plain night tint
             sPlayerLampLit = FALSE;
@@ -2928,6 +2938,7 @@ static void UpdatePlayerLampLight(bool32 night)
     UpdateSpritePaletteWithTime(paletteNum);
     AvgPaletteWeighted(&gPlttBufferFaded[OBJ_PLTT_ID(paletteNum)], &gPlttBufferUnfaded[OBJ_PLTT_ID(paletteNum)],
                        &gPlttBufferFaded[OBJ_PLTT_ID(paletteNum)], 256 - strength);
+    ApplyLampFade(paletteNum, fadeCoeff);
     sPlayerLampLit = TRUE;
 }
 
@@ -2935,14 +2946,29 @@ static void UpdatePlayerLampLight(bool32 night)
 void UpdateLampLighting(void)
 {
     bool32 night;
+    s32 fadeCoeff = -1; // -1: no fade running
 
-    if (gPaletteFade.active)
+    // Leave palettes alone while fading out. A fade to black stays in
+    // WEATHER_PAL_STATE_SCREEN_FADING_OUT until the next map loads, after
+    // gPaletteFade.active is already FALSE, and writing lit colors then would show
+    // the lamps and player on a black screen.
+    if (gWeatherPtr->palProcessingState == WEATHER_PAL_STATE_SCREEN_FADING_OUT)
         return;
 
+    // While fading in, keep the lamps lit and darken them along with the rest of the
+    // screen, so they don't fade in unlit and switch on at the end. Other fades
+    // (hardware, weather gamma fades) are left alone.
+    if (gPaletteFade.active || gWeatherPtr->palProcessingState == WEATHER_PAL_STATE_SCREEN_FADING_IN)
+    {
+        fadeCoeff = GetTimeOfDayFadeInCoeff();
+        if (fadeCoeff < 0)
+            return;
+    }
+
     night = (gTimeOfDay == TIME_NIGHT && MapHasNaturalLight(gMapHeader.mapType));
-    UpdateLampPostPalette(night);
+    UpdateLampPostPalette(night, fadeCoeff);
     if (OW_LAMP_LIGHTS_PLAYER)
-        UpdatePlayerLampLight(night);
+        UpdatePlayerLampLight(night, fadeCoeff);
 }
 
 #undef LAMP_FULL_LIGHT_DIST
