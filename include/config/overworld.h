@@ -4,6 +4,7 @@
 // Movement config
 #define OW_RUNNING_INDOORS          GEN_LATEST  // In Gen4+, players are allowed to run indoors.
 #define SLOW_MOVEMENT_ON_STAIRS     FALSE       // If enabled, the player will move slower up/down stairs like in FR
+#define OW_RUNNING_SHOES_ON_ARRIVAL TRUE        // If TRUE, Mom gives the Running Shoes when the player steps off the moving truck in Littleroot, instead of after receiving the Pokédex.
 
 // Other settings
 #define OW_POISON_DAMAGE                GEN_LATEST // In Gen4, Pokémon no longer faint from Poison in the overworld. In Gen5+, they no longer take damage at all.
