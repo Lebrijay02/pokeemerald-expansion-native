@@ -5,6 +5,7 @@
 #include "battle_pyramid_bag.h"
 #include "bg.h"
 #include "debug.h"
+#include "debug_quick_menu.h"
 #include "event_data.h"
 #include "event_object_movement.h"
 #include "event_object_lock.h"
@@ -69,6 +70,7 @@ enum
     MENU_ACTION_PYRAMID_BAG,
     MENU_ACTION_DEBUG,
     MENU_ACTION_DEXNAV,
+    MENU_ACTION_QUICK_DEBUG,
 };
 
 // Save status
@@ -88,6 +90,8 @@ EWRAM_DATA static u8 sSafariBallsWindowId = 0;
 EWRAM_DATA static u8 sBattlePyramidFloorWindowId = 0;
 EWRAM_DATA static u8 sStartMenuCursorPos = 0;
 EWRAM_DATA static u8 sNumStartMenuActions = 0;
+#define START_MENU_MAX_VISIBLE 8 // entries that fit in the start menu window
+
 EWRAM_DATA static u8 sCurrentStartMenuActions[9] = {0};
 EWRAM_DATA static s8 sInitStartMenuData[2] = {0};
 
@@ -110,6 +114,7 @@ static bool8 StartMenuLinkModePlayerNameCallback(void);
 static bool8 StartMenuBattlePyramidRetireCallback(void);
 static bool8 StartMenuBattlePyramidBagCallback(void);
 static bool8 StartMenuDebugCallback(void);
+static bool8 StartMenuQuickDebugCallback(void);
 static bool8 StartMenuDexNavCallback(void);
 
 // Menu callbacks
@@ -206,6 +211,7 @@ static const struct MenuAction sStartMenuItems[] =
     [MENU_ACTION_PYRAMID_BAG]     = {gText_MenuBag,     {.u8_void = StartMenuBattlePyramidBagCallback}},
     [MENU_ACTION_DEBUG]           = {sText_MenuDebug,   {.u8_void = StartMenuDebugCallback}},
     [MENU_ACTION_DEXNAV]          = {gText_MenuDexNav,  {.u8_void = StartMenuDexNavCallback}},
+    [MENU_ACTION_QUICK_DEBUG]     = {sText_MenuDebug,   {.u8_void = StartMenuQuickDebugCallback}},
 };
 
 static const struct BgTemplate sBgTemplates_LinkBattleSave[] =
@@ -341,7 +347,13 @@ static void BuildNormalStartMenu(void)
     AddStartMenuAction(MENU_ACTION_PLAYER);
     AddStartMenuAction(MENU_ACTION_SAVE);
     AddStartMenuAction(MENU_ACTION_OPTION);
-    AddStartMenuAction(MENU_ACTION_EXIT);
+
+    if (DEBUG_QUICK_MENU)
+        AddStartMenuAction(MENU_ACTION_QUICK_DEBUG);
+
+    // The start menu window fits START_MENU_MAX_VISIBLE entries; B also closes it
+    if (sNumStartMenuActions < START_MENU_MAX_VISIBLE)
+        AddStartMenuAction(MENU_ACTION_EXIT);
 }
 
 static void BuildDebugStartMenu(void)
@@ -655,6 +667,7 @@ static bool8 HandleStartMenuInput(void)
         if (gMenuCallback != StartMenuSaveCallback
             && gMenuCallback != StartMenuExitCallback
             && gMenuCallback != StartMenuDebugCallback
+            && gMenuCallback != StartMenuQuickDebugCallback
             && gMenuCallback != StartMenuSafariZoneRetireCallback
             && gMenuCallback != StartMenuBattlePyramidRetireCallback)
         {
@@ -802,6 +815,14 @@ static bool8 StartMenuDebugCallback(void)
     }
 
 return TRUE;
+}
+
+static bool8 StartMenuQuickDebugCallback(void)
+{
+    RemoveExtraStartMenuWindows();
+    HideStartMenuDebug(); // Hide start menu without enabling movement
+    ShowQuickDebugMenu();
+    return TRUE;
 }
 
 static bool8 StartMenuSafariZoneRetireCallback(void)
