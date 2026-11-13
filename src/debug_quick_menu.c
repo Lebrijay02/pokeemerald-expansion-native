@@ -2,6 +2,7 @@
 // Left/Right picks a value (L/R jump on the GIVE row), A applies the selected row, B closes.
 #include "global.h"
 #include "debug_quick_menu.h"
+#include "event_data.h"
 #include "event_object_lock.h"
 #include "event_object_movement.h"
 #include "field_screen_effect.h"
@@ -21,6 +22,7 @@
 #include "task.h"
 #include "text.h"
 #include "window.h"
+#include "constants/flags.h"
 #include "constants/heal_locations.h"
 #include "constants/pokemon.h"
 #include "constants/species.h"
@@ -32,6 +34,7 @@ enum QuickDebugRow
     ROW_TIME,
     ROW_TELEPORT,
     ROW_GIVE_MON,
+    ROW_BADGES,
     ROW_CLOSE,
     ROW_COUNT,
 };
@@ -47,6 +50,7 @@ enum QuickDebugRow
 #define tDestination data[3]
 #define tSpecies     data[4]
 #define tStatus      data[5]
+#define tBadges      data[6]
 
 #define GIVE_MON_LEVEL       50
 #define SPECIES_FAST_STEP    50 // L/R jump on the GIVE row
@@ -57,6 +61,7 @@ enum GiveStatus
     GIVE_STATUS_PARTY,
     GIVE_STATUS_PC,
     GIVE_STATUS_FAILED,
+    BADGES_STATUS_SET,
 };
 
 // HEAL_LOCATION_NONE stands for the player's house, which depends on gender
@@ -118,6 +123,7 @@ static const u8 *const sRowLabels[ROW_COUNT] =
     [ROW_TIME]     = COMPOUND_STRING("TIME"),
     [ROW_TELEPORT] = COMPOUND_STRING("TELEPORT"),
     [ROW_GIVE_MON] = COMPOUND_STRING("GIVE Lv50"),
+    [ROW_BADGES]   = COMPOUND_STRING("BADGES"),
     [ROW_CLOSE]    = COMPOUND_STRING("CLOSE"),
 };
 
@@ -127,6 +133,7 @@ static const u8 sText_HelpGive[] = _("{DPAD_LEFTRIGHT} STEP 1  {L_BUTTON}{R_BUTT
 static const u8 sText_GivenParty[] = _("{STR_VAR_1} joined your party!");
 static const u8 sText_GivenPC[] = _("{STR_VAR_1} was sent to the PC.");
 static const u8 sText_GiveFailed[] = _("No room for {STR_VAR_1}!");
+static const u8 sText_BadgesSet[] = _("You now have {STR_VAR_1} of {STR_VAR_2} badges.");
 
 static const u8 sTextColor_Normal[] = {TEXT_COLOR_WHITE, TEXT_COLOR_DARK_GRAY, TEXT_COLOR_LIGHT_GRAY};
 static const u8 sTextColor_Selected[] = {TEXT_COLOR_WHITE, TEXT_COLOR_RED, TEXT_COLOR_LIGHT_RED};
@@ -143,6 +150,18 @@ static const struct WindowTemplate sQuickDebugWindowTemplate =
 };
 
 static void Task_QuickDebugMenu(u8 taskId);
+
+static u32 CountBadges(void)
+{
+    u32 i, count = 0;
+
+    for (i = 0; i < NUM_BADGES; i++)
+    {
+        if (FlagGet(FLAG_BADGE01_GET + i))
+            count++;
+    }
+    return count;
+}
 
 // Species that can be given: enabled and not a battle-only form
 static bool32 IsGivableSpecies(u32 species)
@@ -253,6 +272,7 @@ static void DrawQuickDebugMenu(u8 taskId)
     const struct HealLocation *loc = GetHealLocation(GetDestinationHealLocation(task->tDestination));
     u8 mapName[32];
     u8 monText[24];
+    u8 badgeText[8];
     const u8 *helpText;
 
     GetMapName(mapName, Overworld_GetMapHeaderByGroupAndId(loc->mapGroup, loc->mapNum)->regionMapSectionId, 0);
@@ -268,10 +288,23 @@ static void DrawQuickDebugMenu(u8 taskId)
     StringAppend(monText, GetSpeciesName(task->tSpecies));
     PrintRow(windowId, ROW_GIVE_MON, task->tRow == ROW_GIVE_MON, monText);
 
+    // "3/8": badges owned after applying, out of all badges
+    ConvertIntToDecimalStringN(badgeText, task->tBadges, STR_CONV_MODE_LEFT_ALIGN, 1);
+    StringAppend(badgeText, COMPOUND_STRING("/"));
+    ConvertIntToDecimalStringN(badgeText + StringLength(badgeText), NUM_BADGES, STR_CONV_MODE_LEFT_ALIGN, 1);
+    PrintRow(windowId, ROW_BADGES, task->tRow == ROW_BADGES, badgeText);
+
     PrintRow(windowId, ROW_CLOSE, task->tRow == ROW_CLOSE, NULL);
 
     // Bottom line: result of the last give, otherwise the controls
-    if (task->tStatus != GIVE_STATUS_NONE)
+    if (task->tStatus == BADGES_STATUS_SET)
+    {
+        ConvertIntToDecimalStringN(gStringVar1, CountBadges(), STR_CONV_MODE_LEFT_ALIGN, 1);
+        ConvertIntToDecimalStringN(gStringVar2, NUM_BADGES, STR_CONV_MODE_LEFT_ALIGN, 1);
+        StringExpandPlaceholders(gStringVar4, sText_BadgesSet);
+        helpText = gStringVar4;
+    }
+    else if (task->tStatus != GIVE_STATUS_NONE)
     {
         StringCopy(gStringVar1, GetSpeciesName(task->tSpecies));
         if (task->tStatus == GIVE_STATUS_PARTY)
@@ -346,6 +379,24 @@ static void ApplyGiveMon(u8 taskId)
     DrawQuickDebugMenu(taskId);
 }
 
+// Owns the first tBadges badges and clears the rest; the menu stays open
+static void ApplyBadges(u8 taskId)
+{
+    struct Task *task = &gTasks[taskId];
+    u32 i;
+
+    for (i = 0; i < NUM_BADGES; i++)
+    {
+        if (i < (u32)task->tBadges)
+            FlagSet(FLAG_BADGE01_GET + i);
+        else
+            FlagClear(FLAG_BADGE01_GET + i);
+    }
+    task->tStatus = BADGES_STATUS_SET;
+    PlaySE(SE_SELECT);
+    DrawQuickDebugMenu(taskId);
+}
+
 static void ApplyTeleport(u8 taskId)
 {
     SetWarpDestinationToHealLocation(GetDestinationHealLocation(gTasks[taskId].tDestination));
@@ -368,6 +419,7 @@ void ShowQuickDebugMenu(void)
     task->tDestination = 0;
     task->tSpecies = CycleSpecies(SPECIES_NONE, 1);
     task->tStatus = GIVE_STATUS_NONE;
+    task->tBadges = CountBadges();
     DrawStdWindowFrame(task->tWindowId, FALSE);
     DrawQuickDebugMenu(taskId);
 }
@@ -395,6 +447,9 @@ static void Task_QuickDebugMenu(u8 taskId)
             break;
         case ROW_GIVE_MON:
             ApplyGiveMon(taskId);
+            break;
+        case ROW_BADGES:
+            ApplyBadges(taskId);
             break;
         case ROW_CLOSE:
             CloseQuickDebugMenu(taskId);
@@ -441,6 +496,8 @@ static void Task_QuickDebugMenu(u8 taskId)
             task->tDestination = (task->tDestination + delta + ARRAY_COUNT(sDestinations)) % ARRAY_COUNT(sDestinations);
         else if (task->tRow == ROW_GIVE_MON)
             task->tSpecies = CycleSpecies(task->tSpecies, delta);
+        else if (task->tRow == ROW_BADGES)
+            task->tBadges = (task->tBadges + delta + NUM_BADGES + 1) % (NUM_BADGES + 1);
         else
             return;
     }
@@ -455,3 +512,4 @@ static void Task_QuickDebugMenu(u8 taskId)
 #undef tDestination
 #undef tSpecies
 #undef tStatus
+#undef tBadges
